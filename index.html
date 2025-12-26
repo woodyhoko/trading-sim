@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantLab Trading Simulator</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Styles for Scrollbar & Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // --- ICONS (Inlined to avoid CDN dependency issues) ---
+        const IconBase = ({ children, className, ...props }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                className={className}
+                {...props}
+            >
+                {children}
+            </svg>
+        );
+
+        const Play = (props) => <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3"/></IconBase>;
+        const RotateCcw = (props) => <IconBase {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></IconBase>;
+        const Activity = (props) => <IconBase {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></IconBase>;
+        const TrendingUp = (props) => <IconBase {...props}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></IconBase>;
+        const DollarSign = (props) => <IconBase {...props}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></IconBase>;
+        const BarChart3 = (props) => <IconBase {...props}><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></IconBase>;
+        const AlertTriangle = (props) => <IconBase {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></IconBase>;
+        const Layers = (props) => <IconBase {...props}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconBase>;
+        const DownloadCloud = (props) => <IconBase {...props}><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></IconBase>;
+        const MousePointer2 = (props) => <IconBase {...props}><path d="m12 21.05 1.72-3.11 3.4-1.78a2 2 0 0 0 .5-3.32l-9.13-9.13a2 2 0 0 0-3.32.5l-1.78 3.4L.3 9.27a2 2 0 0 0 .45 2.5l5.53 5.54a2 2 0 0 0 2.5.45l3.11-1.71L12 21.05z"/><line x1="6" y1="6" x2="18" y2="18"/></IconBase>;
+        const History = (props) => <IconBase {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><time dateTime="2022-01-01">12:00</time><polyline points="12 6 12 12 16 14"/></IconBase>;
+        const ChevronDown = (props) => <IconBase {...props}><polyline points="6 9 12 15 18 9"/></IconBase>;
+        const Calendar = (props) => <IconBase {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></IconBase>;
+        const Maximize2 = (props) => <IconBase {...props}><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></IconBase>;
+        const Info = (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></IconBase>;
+        const ArrowUpCircle = (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="16" x2="12" y2="8"/></IconBase>;
+        const ArrowDownCircle = (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/></IconBase>;
+
+        // --- MATH & UTILS ---
+
+        const randn = () => {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        };
+
+        const linearRegression = (x, y) => {
+            const n = x.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += x[i];
+                sumY += y[i];
+                sumXY += x[i] * y[i];
+                sumXX += x[i] * x[i];
+            }
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            return { slope };
+        };
+
+        const generateDates = (count, startDate = new Date()) => {
+            const dates = [];
+            let current = new Date(startDate);
+            for(let i=0; i<count; i++) {
+                // Skip weekends
+                if (current.getDay() === 6) current.setDate(current.getDate() + 2);
+                else if (current.getDay() === 0) current.setDate(current.getDate() + 1);
+                
+                dates.push(new Date(current).toISOString().split('T')[0]);
+                current.setDate(current.getDate() + 1);
+            }
+            return dates;
+        };
+
+        // --- DATA ENGINE ---
+
+        const generateMarketData = (days = 2520, startPrice = 100) => {
+            let price = startPrice;
+            const prices = [];
+            const volumes = [];
+            const marketPrices = []; 
+            let marketPrice = startPrice;
+            
+            // Generate simulated history (past dates)
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - (days * 1.4)); // approx to account for weekends
+            const dates = generateDates(days, startDate);
+
+            const volatility = 0.02;
+            const drift = 0.0003;
+            
+            for (let i = 0; i < days; i++) {
+                const shock = randn();
+                const marketShock = randn() * 0.8 + shock * 0.2; 
+                
+                price = price * Math.exp(drift + volatility * shock);
+                marketPrice = marketPrice * Math.exp(drift * 0.8 + (volatility * 0.6) * marketShock);
+
+                if (Math.random() < 0.005) price *= (1 + (Math.random() - 0.5) * 0.1);
+
+                const volBase = 1000000;
+                const volShock = Math.abs(shock) * 500000 + (Math.random() * 200000);
+                volumes.push(Math.floor(volBase + volShock));
+
+                prices.push(parseFloat(price.toFixed(2)));
+                marketPrices.push(parseFloat(marketPrice.toFixed(2)));
+            }
+            return { prices, marketPrices, volumes, dates };
+        };
+
+        const calculateIndicators = (prices, marketPrices) => {
+            const returns = [];
+            const marketReturns = [];
+            const sma50 = [];
+            const sma200 = [];
+            const powerLawSlope = []; 
+            
+            for (let i = 1; i < prices.length; i++) {
+                returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+                marketReturns.push((marketPrices[i] - marketPrices[i-1]) / marketPrices[i-1]);
+            }
+
+            const betas = new Array(prices.length).fill(1);
+            const alphas = new Array(prices.length).fill(0);
+
+            for (let i = 0; i < prices.length; i++) {
+                // SMAs
+                const slice50 = prices.slice(Math.max(0, i - 50), i + 1);
+                const avg50 = slice50.reduce((a, b) => a + b, 0) / slice50.length;
+                sma50.push(avg50);
+
+                const slice200 = prices.slice(Math.max(0, i - 200), i + 1);
+                const avg200 = slice200.reduce((a, b) => a + b, 0) / slice200.length;
+                sma200.push(avg200);
+
+                // Power Law
+                if (i > 30) {
+                    const windowSize = 30;
+                    const y = prices.slice(i - windowSize, i).map(p => Math.log(p));
+                    const x = Array.from({length: windowSize}, (_, k) => Math.log(k + 1));
+                    const { slope } = linearRegression(x, y);
+                    powerLawSlope.push(slope);
+                } else {
+                    powerLawSlope.push(0);
+                }
+
+                // Alpha/Beta
+                if (i > 60) {
+                    const rAsset = returns.slice(i - 60, i);
+                    const rMarket = marketReturns.slice(i - 60, i);
+                    const meanAsset = rAsset.reduce((a,b)=>a+b,0)/rAsset.length;
+                    const meanMarket = rMarket.reduce((a,b)=>a+b,0)/rMarket.length;
+                    
+                    let cov = 0;
+                    let varM = 0;
+                    for(let j=0; j<rAsset.length; j++){
+                        cov += (rAsset[j] - meanAsset) * (rMarket[j] - meanMarket);
+                        varM += (rMarket[j] - meanMarket) ** 2;
+                    }
+                    const beta = cov / (varM || 1); 
+                    const alpha = meanAsset - (beta * meanMarket); 
+                    
+                    betas[i] = beta;
+                    alphas[i] = alpha * 252; 
+                }
+            }
+            return { sma50, sma200, powerLawSlope, betas, alphas };
+        };
+
+        const bootstrapData = (prices, marketPrices, volumes, blockSizeDays = 252, totalYears = 10) => {
+            if (prices.length < blockSizeDays) return { prices, marketPrices, volumes, dates: [] };
+
+            const blocks = [];
+            
+            for(let i=0; i < prices.length - blockSizeDays; i += blockSizeDays) {
+                blocks.push(prices.slice(i, i + blockSizeDays));
+            }
+            
+            let newPrices = [...prices.slice(-200)]; 
+            let newVolumes = [...volumes.slice(-200)];
+
+            let lastPrice = prices[prices.length-1];
+
+            for (let i = 0; i < totalYears; i++) {
+                const idx = Math.floor(Math.random() * blocks.length);
+                const block = blocks[idx];
+                const volBlock = volumes.slice(idx * blockSizeDays, (idx + 1) * blockSizeDays);
+                
+                const startOfBlock = block[0];
+                
+                const rebasedBlock = block.map(p => (p / startOfBlock) * lastPrice);
+                
+                newPrices = [...newPrices, ...rebasedBlock];
+                newVolumes = [...newVolumes, ...volBlock]; // Using original volumes for simplicity
+                
+                lastPrice = newPrices[newPrices.length - 1];
+            }
+
+            // Generate Future Dates
+            const dates = generateDates(newPrices.length, new Date());
+
+            // Reconstruct marketPrices as a simple benchmark for simulation
+            const newMarketPrices = newPrices.map(p => p * (1 + (Math.random() * 0.001))); 
+
+            return { prices: newPrices, marketPrices: newMarketPrices, volumes: newVolumes, dates };
+        };
+
+        // --- API ---
+        const fetchStockData = async (ticker, apiKey) => {
+            const key = apiKey || 'demo';
+            const symbol = apiKey ? ticker : 'IBM'; 
+            const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${symbol}&outputsize=full&apikey=${key}`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data['Error Message'] || data['Note']) {
+                throw new Error(data['Error Message'] || "API Limit or Invalid Key. (Demo only supports 'IBM')");
+            }
+
+            const timeSeries = data['Time Series (Daily)'];
+            if (!timeSeries) throw new Error("No time series data found.");
+
+            const sortedDates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
+            
+            const prices = [];
+            const volumes = [];
+            const marketPrices = []; 
+            const dates = sortedDates;
+            
+            let simulatedMarket = 100;
+
+            sortedDates.forEach(date => {
+                const dayData = timeSeries[date];
+                const close = parseFloat(dayData['5. adjusted close']);
+                const vol = parseInt(dayData['6. volume']);
+                
+                prices.push(close);
+                volumes.push(vol);
+                simulatedMarket = simulatedMarket * (1 + (randn() * 0.01 + 0.0003)); 
+                marketPrices.push(simulatedMarket);
+            });
+
+            return { prices, marketPrices, volumes, dates };
+        };
+
+        const executeStrategy = (prices, indicators, strategyCode, initialCapital = 100000) => {
+            let capital = initialCapital;
+            let position = 0;
+            const equityCurve = [];
+            const buyHoldCurve = []; 
+            const trades = [];
+            const initialPrice = prices[200]; 
+
+            // Warmup period
+            for(let i=0; i<200; i++) {
+                equityCurve.push(initialCapital);
+                buyHoldCurve.push(initialCapital);
+            }
+
+            for (let i = 200; i < prices.length; i++) {
+                const price = prices[i];
+                const sma50 = indicators.sma50[i];
+                const sma200 = indicators.sma200[i];
+                const alpha = indicators.alphas[i];
+                const beta = indicators.betas[i];
+                const powerLaw = indicators.powerLawSlope[i];
+
+                const userFunc = new Function(
+                    'price', 'capital', 'position', 'sma50', 'sma200', 'alpha', 'beta', 'powerLaw',
+                    strategyCode
+                );
+
+                let action = 'HOLD';
+                try {
+                    action = userFunc(price, capital, position, sma50, sma200, alpha, beta, powerLaw);
+                } catch (e) {}
+
+                if (action === 'BUY' && capital >= price) {
+                    const shares = Math.floor(capital / price);
+                    capital -= shares * price;
+                    position += shares;
+                    trades.push({ type: 'BUY', price, day: i });
+                } else if (action === 'SELL' && position > 0) {
+                    capital += position * price;
+                    position = 0;
+                    trades.push({ type: 'SELL', price, day: i });
+                }
+                equityCurve.push(capital + position * price);
+                
+                const buyHoldShares = initialCapital / initialPrice;
+                buyHoldCurve.push(buyHoldShares * price);
+            }
+
+            return {
+                equityCurve,
+                buyHoldCurve,
+                finalBalance: equityCurve[equityCurve.length - 1],
+                buyHoldBalance: buyHoldCurve[buyHoldCurve.length - 1],
+                tradeCount: trades.length,
+                trades,
+                returnPct: ((equityCurve[equityCurve.length - 1] - initialCapital) / initialCapital) * 100,
+                buyHoldReturnPct: ((buyHoldCurve[buyHoldCurve.length - 1] - initialCapital) / initialCapital) * 100
+            };
+        };
+
+        // --- PREMIUM CHART COMPONENTS ---
+
+        const PremiumChart = ({ 
+            priceData, 
+            volumeData = [], 
+            dates = [],
+            trades = [],
+            overlays = [], 
+            mainLineLabel = "Main Line",
+            color = "#10b981", 
+            height = 450
+        }) => {
+            const [view, setView] = useState({ start: 0.7, end: 1.0 }); // Show last 30% by default
+            const [hover, setHover] = useState(null);
+            const containerRef = useRef(null);
+            const minimapRef = useRef(null);
+            const isDragging = useRef(null); // 'start', 'end', 'pan', or null
+
+            const dataLen = priceData.length;
+            const startIndex = Math.floor(view.start * (dataLen - 1));
+            const endIndex = Math.floor(view.end * (dataLen - 1));
+            
+            if (startIndex < 0 || endIndex > dataLen || startIndex >= endIndex) return null;
+
+            const visiblePrice = priceData.slice(startIndex, endIndex);
+            const visibleVol = volumeData.slice(startIndex, endIndex);
+            const visibleDates = dates.slice(startIndex, endIndex);
+
+            const allVisibleValues = [
+                ...visiblePrice,
+                ...overlays.flatMap(o => o.data.slice(startIndex, endIndex))
+            ];
+
+            const maxP = Math.max(...allVisibleValues);
+            const minP = Math.min(...allVisibleValues);
+            const rangeP = maxP - minP || 1;
+            const maxV = Math.max(...visibleVol, 1);
+
+            const mapX = (i, count) => (i / (count - 1)) * 100;
+            const mapY = (val) => 100 - ((val - minP) / rangeP) * 100;
+
+            const getPath = (data, isFull = false) => {
+                const step = isFull ? Math.ceil(data.length / 300) : 1;
+                return data.filter((_, i) => i % step === 0).map((val, i, arr) => {
+                    const x = (i / (arr.length - 1)) * 100;
+                    const y = isFull 
+                        ? 100 - ((val - Math.min(...data)) / (Math.max(...data) - Math.min(...data))) * 100 
+                        : mapY(val);
+                    return `${x},${y}`;
+                }).join(' ');
+            };
+
+            const handleMinimapMouseDown = (e, type) => {
+                isDragging.current = type;
+                e.preventDefault();
+                e.stopPropagation();
+            };
+
+            useEffect(() => {
+                const handleMouseMove = (e) => {
+                    if (!isDragging.current || !minimapRef.current) return;
+                    
+                    const rect = minimapRef.current.getBoundingClientRect();
+                    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    
+                    setView(prev => {
+                        const span = prev.end - prev.start;
+                        let newStart = prev.start;
+                        let newEnd = prev.end;
+
+                        if (isDragging.current === 'start') {
+                            newStart = Math.min(x, prev.end - 0.05);
+                        } else if (isDragging.current === 'end') {
+                            newEnd = Math.max(x, prev.start + 0.05);
+                        } else if (isDragging.current === 'pan') {
+                            const center = x;
+                            newStart = Math.max(0, center - span / 2);
+                            newEnd = Math.min(1, newStart + span);
+                            if (newEnd === 1) newStart = 1 - span;
+                        }
+                        return { start: newStart, end: newEnd };
+                    });
+                };
+
+                const handleMouseUp = () => isDragging.current = null;
+                
+                window.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('mouseup', handleMouseUp);
+                return () => {
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                };
+            }, []);
+
+            const handleChartHover = (e) => {
+                if (!containerRef.current) return;
+                const rect = containerRef.current.getBoundingClientRect();
+                const xPct = (e.clientX - rect.left) / rect.width;
+                
+                const idx = Math.floor(xPct * visiblePrice.length);
+                if (idx >= 0 && idx < visiblePrice.length) {
+                    setHover({
+                        index: idx,
+                        globalIndex: startIndex + idx,
+                        price: visiblePrice[idx],
+                        vol: visibleVol[idx],
+                        date: visibleDates[idx],
+                        x: e.clientX - rect.left
+                    });
+                }
+            };
+
+            return (
+                <div className="flex flex-col select-none" style={{ height }}>
+                    {/* MAIN CHART */}
+                    <div 
+                        ref={containerRef}
+                        className="flex-1 bg-slate-900 rounded-t-lg border border-slate-800 relative cursor-crosshair overflow-hidden"
+                        onMouseMove={handleChartHover}
+                        onMouseLeave={() => setHover(null)}
+                    >
+                        {/* Grid */}
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none p-4 opacity-20">
+                            <div className="border-t border-slate-500 w-full"></div>
+                            <div className="border-t border-slate-500 w-full"></div>
+                            <div className="border-t border-slate-500 w-full"></div>
+                            <div className="border-t border-slate-500 w-full"></div>
+                        </div>
+
+                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible absolute inset-0">
+                            {/* Volume */}
+                            {visibleVol.map((vol, i) => {
+                                const x = mapX(i, visibleVol.length);
+                                const h = (vol / maxV) * 20;
+                                const w = 100 / visibleVol.length;
+                                return (
+                                    <rect key={i} x={x} y={100 - h} width={w} height={h} fill={color} opacity={0.15} />
+                                );
+                            })}
+
+                            {/* Trade Markers */}
+                            {trades.map((t, i) => {
+                                if (t.day < startIndex || t.day > endIndex) return null;
+                                const relIdx = t.day - startIndex;
+                                const x = mapX(relIdx, visiblePrice.length);
+                                const y = mapY(t.price);
+                                const isBuy = t.type === 'BUY';
+                                return (
+                                    <g key={i}>
+                                        <circle cx={x} cy={y} r="1.5" fill={isBuy ? '#10b981' : '#f43f5e'} stroke="white" strokeWidth="0.2" />
+                                        <path 
+                                            d={isBuy ? `M${x},${y+3} L${x-1},${y+5} L${x+1},${y+5} Z` : `M${x},${y-3} L${x-1},${y-5} L${x+1},${y-5} Z`}
+                                            fill={isBuy ? '#10b981' : '#f43f5e'}
+                                        />
+                                    </g>
+                                );
+                            })}
+
+                            {/* Main Line */}
+                            <polyline 
+                                points={getPath(visiblePrice)} 
+                                fill="none" 
+                                stroke={color} 
+                                strokeWidth="1.5" 
+                                vectorEffect="non-scaling-stroke" 
+                                strokeLinejoin="round"
+                            />
+
+                            {/* Overlays */}
+                            {overlays.map((ov, i) => (
+                                <polyline 
+                                    key={i}
+                                    points={getPath(ov.data.slice(startIndex, endIndex))} 
+                                    fill="none" 
+                                    stroke={ov.color} 
+                                    strokeWidth={ov.width || 1} 
+                                    strokeDasharray={ov.dash ? "2,2" : ""}
+                                    vectorEffect="non-scaling-stroke" 
+                                />
+                            ))}
+                        </svg>
+
+                        {/* Y-Axis Labels (Right) */}
+                        <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-500 py-2 px-1 bg-slate-900/80 pointer-events-none">
+                            <span>{maxP.toFixed(2)}</span>
+                            <span>{((maxP + minP)/2).toFixed(2)}</span>
+                            <span>{minP.toFixed(2)}</span>
+                        </div>
+
+                        {/* Legend (Bottom Left - more standard) */}
+                        <div className="absolute bottom-2 left-2 flex gap-3 text-xs pointer-events-none">
+                            <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded border border-slate-700">
+                                <div className="w-2 h-2 rounded-full" style={{backgroundColor: color}}></div>
+                                <span className="text-slate-200 font-medium">{mainLineLabel}</span>
+                            </div>
+                            {overlays.map(ov => (
+                                <div key={ov.label || Math.random()} className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded border border-slate-700">
+                                    <div className="w-2 h-0.5" style={{backgroundColor: ov.color}}></div>
+                                    <span className="text-slate-300">{ov.label || 'Indicator'}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Hover Tooltip */}
+                        {hover && (
+                            <>
+                                <div 
+                                    className="absolute top-0 bottom-0 w-px bg-slate-500/50 pointer-events-none" 
+                                    style={{ left: hover.x }}
+                                />
+                                <div className="absolute top-2 left-2 bg-slate-800/90 border border-slate-700 p-2 rounded shadow-xl text-xs z-20 pointer-events-none">
+                                    <div className="text-slate-400 mb-1">{hover.date}</div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full" style={{background: color}}></span>
+                                        <span className="text-white font-mono">{hover.price.toFixed(2)}</span>
+                                    </div>
+                                    <div className="text-slate-500 mt-1">Vol: {(hover.vol/1000).toFixed(1)}k</div>
+                                    {trades.find(t => t.day === hover.globalIndex) && (
+                                        <div className={`mt-1 font-bold ${trades.find(t => t.day === hover.globalIndex).type === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>
+                                            {trades.find(t => t.day === hover.globalIndex).type} EXECUTED
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* MINIMAP */}
+                    <div ref={minimapRef} className="h-12 bg-slate-950 border border-t-0 border-slate-800 rounded-b-lg relative mt-1">
+                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full absolute inset-0 opacity-30">
+                            <polyline 
+                                points={getPath(priceData, true)} 
+                                fill="none" 
+                                stroke={color} 
+                                strokeWidth="1" 
+                                vectorEffect="non-scaling-stroke" 
+                            />
+                        </svg>
+                        
+                        <div 
+                            className="absolute top-0 bottom-0 bg-cyan-500/10 border-l border-r border-cyan-500/50 cursor-grab active:cursor-grabbing group"
+                            style={{ 
+                                left: `${view.start * 100}%`, 
+                                width: `${(view.end - view.start) * 100}%` 
+                            }}
+                            onMouseDown={(e) => handleMinimapMouseDown(e, 'pan')}
+                        >
+                            <div 
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-cyan-500/50 transition-colors"
+                                onMouseDown={(e) => handleMinimapMouseDown(e, 'start')}
+                            />
+                            <div 
+                                className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-cyan-500/50 transition-colors"
+                                onMouseDown={(e) => handleMinimapMouseDown(e, 'end')}
+                            />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [status, setStatus] = useState('IDLE'); 
+            const [generatedData, setGeneratedData] = useState(null);
+            const [indicators, setIndicators] = useState(null);
+            const [simulationResults, setSimulationResults] = useState(null);
+            const [tickerInput, setTickerInput] = useState('IBM');
+            const [apiKey, setApiKey] = useState('');
+            const [simMode, setSimMode] = useState('SYNTHETIC'); 
+            const [activeTab, setActiveTab] = useState('AGGREGATE'); 
+            
+            const [strategyCode, setStrategyCode] = useState(`// STRATEGY LOGIC
+// Vars: price, capital, position, sma50, sma200, 
+// alpha, beta, powerLaw
+
+// Simple Trend Following
+if (price > sma50 && powerLaw > 0.02 && capital > price) {
+    return 'BUY';
+} 
+// Stop Loss / Take Profit
+else if ((price < sma50 || powerLaw < -0.05) && position > 0) {
+    return 'SELL';
+}
+return 'HOLD';`);
+
+            useEffect(() => {
+                handleNewData();
+            }, []);
+
+            const handleFetchRealData = async () => {
+                setStatus('LOADING');
+                try {
+                    const data = await fetchStockData(tickerInput, apiKey);
+                    const inds = calculateIndicators(data.prices, data.marketPrices);
+                    setGeneratedData(data);
+                    setIndicators(inds);
+                    setSimMode('REAL');
+                    setSimulationResults(null);
+                    setStatus('IDLE');
+                } catch (e) {
+                    alert("Fetch Failed: " + e.message);
+                    setStatus('IDLE');
+                }
+            };
+
+            const handleNewData = () => {
+                const data = generateMarketData(1000);
+                const inds = calculateIndicators(data.prices, data.marketPrices);
+                setGeneratedData(data);
+                setIndicators(inds);
+                setSimMode('SYNTHETIC');
+                setSimulationResults(null);
+                setStatus('IDLE');
+            };
+
+            const runBatchSimulation = () => {
+                setStatus('RUNNING');
+                setActiveTab('AGGREGATE');
+                
+                setTimeout(() => {
+                    try {
+                        if (!generatedData) return;
+                        const historicalRes = executeStrategy(generatedData.prices, indicators, strategyCode);
+                        const results = [];
+                        const RUNS = 5;
+
+                        for (let r = 0; r < RUNS; r++) {
+                            const { prices: simPrices, marketPrices: simMarketPrices, volumes: simVolumes, dates: simDates } = 
+                                bootstrapData(generatedData.prices, generatedData.marketPrices, generatedData.volumes);
+                            
+                            const simIndicators = calculateIndicators(simPrices, simMarketPrices);
+                            const res = executeStrategy(simPrices, simIndicators, strategyCode);
+                            
+                            results.push({ ...res, simPrices, simVolumes, simDates, simIndicators });
+                        }
+
+                        const avgBalance = results.reduce((acc, r) => acc + r.finalBalance, 0) / RUNS;
+                        const avgBuyHold = results.reduce((acc, r) => acc + r.buyHoldBalance, 0) / RUNS;
+                        const avgReturn = ((avgBalance - 100000) / 100000) * 100;
+                        const avgBuyHoldReturn = ((avgBuyHold - 100000) / 100000) * 100;
+                        
+                        const len = results[0].equityCurve.length;
+                        const avgEquityCurve = new Array(len).fill(0).map((_, i) => results.reduce((acc, r) => acc + r.equityCurve[i], 0) / RUNS);
+                        const avgBuyHoldCurve = new Array(len).fill(0).map((_, i) => results.reduce((acc, r) => acc + r.buyHoldCurve[i], 0) / RUNS);
+                        
+                        setSimulationResults({
+                            historicalRes,
+                            avgBalance,
+                            avgReturn,
+                            avgBuyHold,
+                            avgBuyHoldReturn,
+                            runs: results,
+                            avgEquityCurve,
+                            avgBuyHoldCurve
+                        });
+                        setStatus('DONE');
+                    } catch (error) {
+                        console.error(error);
+                        alert("Simulation Failed: " + error.message);
+                        setStatus('IDLE');
+                    }
+                }, 300);
+            };
+
+            const StatCard = ({ label, value, subValue, color = "text-white", icon: Icon }) => (
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700/50 shadow-sm flex items-center justify-between">
+                    <div>
+                        <div className="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">{label}</div>
+                        <div className={`text-xl md:text-2xl font-mono font-semibold ${color}`}>{value}</div>
+                        {subValue && <div className="text-xs text-slate-500 mt-1">{subValue}</div>}
+                    </div>
+                    {Icon && <Icon className={`w-8 h-8 opacity-20 ${color}`} />}
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6 border-b border-slate-800 pb-6">
+                            <div>
+                                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
+                                    QuantLab <span className="text-slate-600 text-lg font-mono font-normal">v3.2</span>
+                                </h1>
+                                <p className="text-slate-400 text-sm max-w-xl">
+                                    Advanced Backtesting Environment. Includes Minimap Navigation, Trade Markers, and Multi-Scenario Analysis.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col md:flex-row gap-3 bg-slate-900 p-3 rounded-lg border border-slate-800">
+                                <div className="flex items-center gap-2">
+                                    <input type="text" placeholder="Ticker (IBM)" className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm w-32 focus:border-cyan-500 outline-none uppercase" value={tickerInput} onChange={e => setTickerInput(e.target.value)} />
+                                    <input type="text" placeholder="API Key" className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm w-40 focus:border-cyan-500 outline-none" value={apiKey} onChange={e => setApiKey(e.target.value)} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={handleFetchRealData} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition text-white shadow-lg shadow-blue-500/20"><DownloadCloud className="w-4 h-4" /> Fetch</button>
+                                    <div className="w-px h-6 bg-slate-700 mx-1"></div>
+                                    <button onClick={handleNewData} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm font-medium transition text-slate-300 border border-slate-700"><RotateCcw className="w-4 h-4" /> Synthetic</button>
+                                </div>
+                            </div>
+                        </header>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            <div className="lg:col-span-4 space-y-6">
+                                <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-xl">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2 text-slate-300">
+                                            <Activity className="w-4 h-4 text-cyan-400" />
+                                            <h3 className="text-sm font-bold uppercase tracking-wide">Data Source</h3>
+                                        </div>
+                                        <span className={`text-xs px-2 py-1 rounded font-bold ${simMode === 'REAL' ? 'bg-blue-900 text-blue-200' : 'bg-purple-900 text-purple-200'}`}>
+                                            {simMode === 'REAL' ? tickerInput.toUpperCase() : 'SYNTHETIC'}
+                                        </span>
+                                    </div>
+                                    
+                                    {indicators ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50"><div className="text-xs text-slate-500 mb-1">Alpha</div><div className="text-lg font-mono text-green-400">{indicators.alphas[indicators.alphas.length-1]?.toFixed(3)}</div></div>
+                                            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50"><div className="text-xs text-slate-500 mb-1">Beta</div><div className="text-lg font-mono text-yellow-400">{indicators.betas[indicators.betas.length-1]?.toFixed(2)}</div></div>
+                                            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50"><div className="text-xs text-slate-500 mb-1">Trend</div><div className="text-lg font-mono text-blue-400">{indicators.powerLawSlope[indicators.powerLawSlope.length-1]?.toFixed(3)}</div></div>
+                                            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50"><div className="text-xs text-slate-500 mb-1">Price</div><div className="text-lg font-mono text-white">{generatedData?.prices[generatedData.prices.length-1]?.toFixed(2)}</div></div>
+                                        </div>
+                                    ) : <div className="text-center py-8 text-slate-500 text-sm animate-pulse">Initializing Data Engine...</div>}
+                                </div>
+
+                                <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl flex flex-col overflow-hidden">
+                                    <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center"><span className="text-xs font-bold text-slate-400 font-mono">STRATEGY.JS</span></div>
+                                    <textarea className="w-full h-80 bg-[#0d1117] text-green-400 p-4 font-mono text-sm focus:outline-none resize-none leading-relaxed" value={strategyCode} onChange={(e) => setStrategyCode(e.target.value)} spellCheck="false" />
+                                    <div className="p-4 bg-slate-800 border-t border-slate-700">
+                                        <button onClick={runBatchSimulation} disabled={status === 'RUNNING'} className={`w-full py-3 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${status === 'RUNNING' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-emerald-500/20'}`}>
+                                            {status === 'RUNNING' ? 'Processing...' : <><Layers className="w-4 h-4" /> Run Simulation (5x)</>}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="lg:col-span-8 space-y-6">
+                                {simulationResults ? (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <StatCard label="Avg. Return" value={`${simulationResults.avgReturn.toFixed(2)}%`} subValue="Projected" color={simulationResults.avgReturn > simulationResults.avgBuyHoldReturn ? "text-green-400" : "text-yellow-400"} icon={DollarSign} />
+                                            <StatCard label="Buy & Hold" value={`${simulationResults.avgBuyHoldReturn.toFixed(2)}%`} subValue="Market" color="text-purple-400" icon={TrendingUp} />
+                                            <StatCard label="Historical" value={`${simulationResults.historicalRes.returnPct.toFixed(2)}%`} subValue="Backtest" color={simulationResults.historicalRes.returnPct > 0 ? "text-blue-400" : "text-slate-400"} icon={History} />
+                                            <StatCard label="Alpha" value={`${(simulationResults.avgReturn - simulationResults.avgBuyHoldReturn).toFixed(2)}%`} color={(simulationResults.avgReturn - simulationResults.avgBuyHoldReturn) > 0 ? "text-green-400" : "text-red-400"} icon={Activity} />
+                                        </div>
+
+                                        <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+                                            <div className="flex border-b border-slate-800 bg-slate-950/50">
+                                                <button 
+                                                    onClick={() => setActiveTab('AGGREGATE')}
+                                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'AGGREGATE' ? 'border-cyan-500 text-cyan-400 bg-slate-900' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    Aggregate & Equity
+                                                </button>
+                                                {[0, 1, 2, 3, 4].map(i => (
+                                                    <button 
+                                                        key={i}
+                                                        onClick={() => setActiveTab(`RUN_${i}`)}
+                                                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === `RUN_${i}` ? 'border-emerald-500 text-emerald-400 bg-slate-900' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                                                    >
+                                                        Run #{i+1}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            <div className="p-4 bg-slate-900">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                        {activeTab === 'AGGREGATE' ? (
+                                                            <><div className="w-2 h-6 bg-cyan-500 rounded-sm"></div> Average Equity Curve vs Buy & Hold</>
+                                                        ) : (
+                                                            (() => {
+                                                                const idx = parseInt(activeTab.split('_')[1]);
+                                                                const run = simulationResults.runs[idx];
+                                                                return (
+                                                                    <>
+                                                                        <div className="w-2 h-6 bg-emerald-500 rounded-sm"></div> 
+                                                                        Scenario #{idx + 1} 
+                                                                        <span className={`ml-2 font-mono ${run.returnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                            Strategy: {run.returnPct > 0 ? '+' : ''}{run.returnPct.toFixed(1)}%
+                                                                        </span>
+                                                                        <span className="ml-2 text-slate-500">|</span>
+                                                                        <span className="ml-2 font-mono text-purple-400">
+                                                                            Asset: {run.buyHoldReturnPct > 0 ? '+' : ''}{run.buyHoldReturnPct.toFixed(1)}%
+                                                                        </span>
+                                                                    </>
+                                                                )
+                                                            })()
+                                                        )}
+                                                    </h3>
+                                                    <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-950 px-2 py-1 rounded">
+                                                        <MousePointer2 className="w-3 h-3" /> Drag bottom chart to pan/zoom
+                                                    </div>
+                                                </div>
+
+                                                {activeTab === 'AGGREGATE' ? (
+                                                    <PremiumChart 
+                                                        priceData={simulationResults.avgEquityCurve}
+                                                        mainLineLabel="Avg. Strategy"
+                                                        dates={new Array(simulationResults.avgEquityCurve.length).fill(0).map((_, i) => `Day ${i}`)}
+                                                        overlays={[
+                                                            { data: simulationResults.avgBuyHoldCurve, color: '#a855f7', label: 'Avg. Buy & Hold' }
+                                                        ]}
+                                                        color="#06b6d4" 
+                                                    />
+                                                ) : (
+                                                    (() => {
+                                                        const idx = parseInt(activeTab.split('_')[1]);
+                                                        const run = simulationResults.runs[idx];
+                                                        
+                                                        const alignIdx = Math.min(200, run.simPrices.length - 1);
+                                                        const startPrice = run.simPrices[alignIdx];
+                                                        const startEquity = run.equityCurve[alignIdx];
+                                                        
+                                                        const scalingFactor = startEquity !== 0 ? startPrice / startEquity : 0;
+                                                        const scaledEquity = run.equityCurve.map(v => v * scalingFactor);
+
+                                                        return (
+                                                            <PremiumChart 
+                                                                priceData={run.simPrices} 
+                                                                volumeData={run.simVolumes}
+                                                                dates={run.simDates}
+                                                                trades={run.trades}
+                                                                mainLineLabel="Asset Price"
+                                                                overlays={[
+                                                                    { data: run.simIndicators.sma50, color: '#facc15', opacity: 0.5, label: 'SMA50' },
+                                                                    { data: scaledEquity, color: '#10b981', width: 2, label: 'Strategy (Scaled)' }
+                                                                ]}
+                                                                color="#94a3b8" 
+                                                            />
+                                                        );
+                                                    })()
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><div className="w-2 h-6 bg-cyan-500 rounded-sm"></div> Historical Data</h3>
+                                            </div>
+                                            {generatedData ? (
+                                                <PremiumChart 
+                                                    priceData={generatedData.prices} 
+                                                    volumeData={generatedData.volumes} 
+                                                    dates={generatedData.dates}
+                                                    mainLineLabel="Price"
+                                                    overlays={[
+                                                        { data: indicators.sma50, color: '#facc15', label: 'SMA50' },
+                                                        { data: indicators.sma200, color: '#f472b6', label: 'SMA200' }
+                                                    ]}
+                                                    color="#06b6d4" 
+                                                />
+                                            ) : <div className="h-[450px] flex items-center justify-center text-slate-600">Loading...</div>}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
